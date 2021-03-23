@@ -13,9 +13,16 @@ var ( // flags
 )
 
 func main() {
+	flag.Parse()
 
-	myServer := server.New()
+	myServer, err := server.New()
+	if err != nil {
+		log.Fatalf("creating new server: %v", err)
+	}
 
-	addr := fmt.Sprintf(":%d", *port)
+	addr := fmt.Sprintf("localhost:%d", *port)
+
+	log.Printf("starting server on %s", addr)
+
 	log.Println(http.ListenAndServe(addr, myServer))
 }

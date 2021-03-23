@@ -1,7 +1,9 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"local/simpleinsurance-assessment/pkg/rateCounter"
 	"net/http"
 	"time"
@@ -12,17 +14,25 @@ const (
 )
 
 type Server struct {
-	rateCounter rateCounter.RateCounter
+	rateCounter *rateCounter.RateCounter
 }
 
-func New() *Server {
-	s := &Server{rateCounter: *rateCounter.NewRateCounter(defaultWindowsDuration)}
-	return s
+func New() (*Server, error) {
+	rc, err := rateCounter.NewWindowCounter(defaultWindowsDuration)
+	if err != nil {
+		return nil, fmt.Errorf("creating new rateCounter: %v", err)
+	}
+
+	rc.Start(context.TODO())
+
+	s := &Server{rateCounter: rc}
+
+	return s, nil
 }
 
 func (s *Server) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	s.rateCounter.Increase()
-	requestCounter := s.rateCounter.RequestCounter()
+	requestCounter := s.rateCounter.Counter()
 
 	m := map[string]interface{}{
 		"counter": requestCounter,

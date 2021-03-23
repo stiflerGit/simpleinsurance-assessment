@@ -15,6 +15,7 @@ var ( //flags
 )
 
 func main() {
+	flag.Parse()
 
 	period := time.Duration(float64(time.Second) / float64(*frequency))
 
