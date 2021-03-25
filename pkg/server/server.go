@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"local/simpleinsurance-assessment/pkg/windowCounter"
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/stiflerGit/simpleinsurance-assessment/pkg/windowCounter"
 )
 
 const (

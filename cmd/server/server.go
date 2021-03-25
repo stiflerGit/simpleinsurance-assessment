@@ -3,9 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
-	"local/simpleinsurance-assessment/pkg/server"
 	"log"
 	"net/http"
+
+	"github.com/stiflerGit/simpleinsurance-assessment/pkg/server"
 )
 
 var ( // flags
