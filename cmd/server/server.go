@@ -9,13 +9,19 @@ import (
 )
 
 var ( // flags
-	port = flag.Int("port", 8080, "port on which start the server")
+	port            = flag.Int("port", 8080, "port on which start the server")
+	persistenceFile = flag.String("persistence", "", "path of the file to read/write state")
 )
 
 func main() {
 	flag.Parse()
 
-	myServer, err := server.New()
+	var serverOpts []server.Option
+	if *persistenceFile != "" {
+		serverOpts = append(serverOpts, server.WithFilePersistence(*persistenceFile))
+	}
+
+	myServer, err := server.New(serverOpts...)
 	if err != nil {
 		log.Fatalf("creating new server: %v", err)
 	}

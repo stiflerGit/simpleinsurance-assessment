@@ -3,42 +3,70 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"local/simpleinsurance-assessment/pkg/rateCounter"
+	"local/simpleinsurance-assessment/pkg/windowCounter"
 	"net/http"
+	"os"
 	"time"
 )
 
 const (
-	defaultWindowsDuration = 60 * time.Second
+	defaultWindowsDuration     = 60 * time.Second
+	defaultCounterResolution   = 1000
+	defaultPersistenceFilePath = "windowCounterState.json"
+	defaultSavePeriod          = 5 * time.Second
 )
 
 type Server struct {
-	rateCounter *rateCounter.RateCounter
+	windowCounter *windowCounter.WindowCounter
+	filePath      string
 }
 
-func New() (*Server, error) {
-	rc, err := rateCounter.NewWindowCounter(defaultWindowsDuration)
-	if err != nil {
-		return nil, fmt.Errorf("creating new rateCounter: %v", err)
+func New(opts ...Option) (*Server, error) {
+	s := &Server{
+		filePath: defaultPersistenceFilePath,
 	}
 
-	rc.Start(context.TODO())
+	for _, opt := range opts {
+		opt(s)
+	}
 
-	s := &Server{rateCounter: rc}
+	wc, err := s.buildWindowCounter()
+	if err != nil {
+		return nil, fmt.Errorf("building WindowCounter: %v", err)
+	}
+	s.windowCounter = wc
+
+	wc.Start(context.TODO())
 
 	return s, nil
 }
 
-func (s *Server) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
-	s.rateCounter.Increase()
-	requestCounter := s.rateCounter.Counter()
+func (s Server) buildWindowCounter() (*windowCounter.WindowCounter, error) {
 
-	m := map[string]interface{}{
-		"counter": requestCounter,
+	rcOptions := []windowCounter.Option{
+		windowCounter.WithPersistence(s.filePath, defaultSavePeriod),
 	}
 
-	bytes, err := json.Marshal(m)
+	if _, err := os.Stat(s.filePath); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("stating file %s: %v", s.filePath, err)
+		}
+		return windowCounter.New(defaultWindowsDuration, defaultCounterResolution, rcOptions...)
+	}
+
+	return windowCounter.NewFromFile(s.filePath, rcOptions...)
+}
+
+func (s *Server) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
+	type responseJSON struct {
+		Counter int64 `json:"counter"`
+	}
+
+	respJSON := responseJSON{Counter: s.windowCounter.Increase()}
+
+	bytes, err := json.Marshal(respJSON)
 	if err != nil {
 		resp.WriteHeader(http.StatusInternalServerError)
 		return
