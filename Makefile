@@ -9,5 +9,8 @@ server:
 client:
 	cd cmd/client && go build -o $(BUILD_DIR)/client
 
+test:
+	go test -race ./...
+
 clean:
-	#rm -rf $(BUILD_DIR)
+	rm -rf $(BUILD_DIR) windowCounterState.json # TODO: give a persistence folder

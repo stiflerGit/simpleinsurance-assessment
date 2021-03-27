@@ -27,9 +27,10 @@ type WindowCounter struct {
 	tail     int
 
 	// persistence
-	savedAt             time.Time
-	persistenceFilePath string
-	savePeriod          time.Duration
+	savedAt              time.Time
+	persistenceFilePath  string
+	savePeriod           time.Duration
+	isPersistenceEnabled bool
 
 	stop chan struct{}
 }
@@ -100,39 +101,48 @@ func NewFromFile(filePath string, options ...Option) (wc *WindowCounter, err err
 	return c, nil
 }
 
-func (c WindowCounter) isPersistenceEnabled() bool {
-	return c.persistenceFilePath != ""
-}
-
-// Start starts the the WindowCounter routine asynchronously
+// Run runs the the WindowCounter routine
 //
 // to stop this routine just cancel the context
-func (c *WindowCounter) Start(ctx context.Context) {
-	c.counters = make([]int64, c.resolution)
+func (c *WindowCounter) Run(ctx context.Context) error {
+	var (
+		err error
+		wg  sync.WaitGroup
+	)
 
-	c.stop = make(chan struct{})
+	ctx, cancelFunc := context.WithCancel(ctx)
+	defer cancelFunc()
 
-	if c.isPersistenceEnabled() {
+	if c.isPersistenceEnabled {
+		wg.Add(1)
 		go func() {
+			defer wg.Done()
+
 			ticker := time.NewTicker(c.savePeriod)
 
 			for {
 				select {
 				case <-ctx.Done():
+					ticker.Stop()
 					return
 
 				case <-ticker.C:
 					c.savedAt = time.Now()
-					if err := c.saveState(); err != nil {
-						panic(err) // TODO: remove panic
+					if serr := c.saveState(); err != nil {
+						cancelFunc()
+						err = serr
+						return
 					}
 				}
 			}
 		}()
 	}
 
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 
+		c.counters = make([]int64, c.resolution)
 		period := computePeriod(c.windowDuration, c.resolution)
 		ticker := time.NewTicker(period)
 
@@ -151,6 +161,10 @@ func (c *WindowCounter) Start(ctx context.Context) {
 			}
 		}
 	}()
+
+	wg.Wait()
+
+	return err
 }
 
 func (c *WindowCounter) tick() {
@@ -169,20 +183,6 @@ func (c *WindowCounter) tick() {
 	}
 
 	c.prevCounter = c.counter
-}
-
-// TODO
-func (c *WindowCounter) Stop() error {
-	c.stop <- struct{}{}
-
-	if c.isPersistenceEnabled() {
-		c.savedAt = time.Now()
-		if err := c.saveState(); err != nil {
-			return fmt.Errorf("saving state: %v", err)
-		}
-	}
-
-	return nil
 }
 
 func (c *WindowCounter) saveState() error {

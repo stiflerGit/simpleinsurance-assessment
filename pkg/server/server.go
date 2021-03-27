@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"time"
@@ -21,7 +22,9 @@ const (
 
 type Server struct {
 	windowCounter *windowCounter.WindowCounter
+	logger        *log.Logger
 	filePath      string
+	err           error
 }
 
 func New(opts ...Option) (*Server, error) {
@@ -33,13 +36,37 @@ func New(opts ...Option) (*Server, error) {
 		opt(s)
 	}
 
+	s.logger.Printf("building window counter\n")
 	wc, err := s.buildWindowCounter()
 	if err != nil {
 		return nil, fmt.Errorf("building WindowCounter: %v", err)
 	}
 	s.windowCounter = wc
+	s.logger.Printf("window counter built\n")
 
-	wc.Start(context.TODO())
+	go func() {
+		for {
+			s.logger.Printf("starting window counter\n")
+			if err := wc.Run(context.TODO()); err != nil {
+				s.logger.Printf("[WARN] window counter error: %v\n", err)
+				s.logger.Printf("trying to restart window counter\n")
+
+				s.logger.Printf("removing old persistence file\n")
+				if err = os.Remove(s.filePath); err != nil {
+					s.logger.Printf("removing persistence file in %s: %v\n", s.filePath, err)
+				}
+				s.logger.Printf("old persistence file removed\n")
+
+				s.logger.Printf("building window counter\n")
+				wc, err = s.buildWindowCounter()
+				if err != nil {
+					panic(fmt.Errorf("building WindowCounter: %v", err))
+				}
+				s.logger.Printf("window counter built\n")
+				s.windowCounter = wc
+			}
+		}
+	}()
 
 	return s, nil
 }
@@ -60,14 +87,17 @@ func (s Server) buildWindowCounter() (*windowCounter.WindowCounter, error) {
 	return windowCounter.NewFromFile(s.filePath, rcOptions...)
 }
 
+// ServeHTTP responds at each request with a counter of the total number
+// of requests that it has received during the previous 60 seconds
 func (s *Server) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
-	type responseJSON struct {
-		Counter int64 `json:"counter"`
+
+	response, err := s.Request()
+	if err != nil {
+		resp.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
-	respJSON := responseJSON{Counter: s.windowCounter.Increase()}
-
-	bytes, err := json.Marshal(respJSON)
+	bytes, err := json.Marshal(response)
 	if err != nil {
 		resp.WriteHeader(http.StatusInternalServerError)
 		return
@@ -78,4 +108,15 @@ func (s *Server) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	}
 
 	resp.WriteHeader(http.StatusOK)
+}
+
+// Request execute the logic of the server i.e. return the number of requests in the last 60s
+func (s *Server) Request() (Response, error) {
+	return Response{
+		Counter: s.windowCounter.Increase(),
+	}, nil
+}
+
+type Response struct {
+	Counter int64 `json:"counter"`
 }

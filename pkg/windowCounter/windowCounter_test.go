@@ -88,10 +88,11 @@ func TestRateCounter_Counter(t *testing.T) {
 		nRoutine          int
 	}
 	tests := []struct {
-		name   string
-		fields fields
-		args   args
-		want   int64
+		name    string
+		fields  fields
+		args    args
+		want    int64
+		wantErr bool
 	}{
 		{
 			name: "cold-start one routine",
@@ -109,7 +110,8 @@ func TestRateCounter_Counter(t *testing.T) {
 				requestsPerSecond: 10,
 				nRoutine:          1,
 			},
-			want: 10,
+			want:    10,
+			wantErr: false,
 		},
 		{
 			name: "cold-start two routines",
@@ -127,7 +129,8 @@ func TestRateCounter_Counter(t *testing.T) {
 				nRoutine:          2,
 				requestsPerSecond: 10,
 			},
-			want: 20,
+			want:    20,
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
@@ -144,9 +147,15 @@ func TestRateCounter_Counter(t *testing.T) {
 
 			ctx, cancelFunc := context.WithTimeout(context.TODO(), tt.args.testDuration)
 
-			c.Start(ctx)
-
 			wg := sync.WaitGroup{}
+			wg.Add(1)
+
+			var err error
+			go func() {
+				defer wg.Done()
+				err = c.Run(ctx)
+			}()
+
 			wg.Add(tt.args.nRoutine)
 			for i := 0; i < tt.args.nRoutine; i++ {
 				go func() {
@@ -169,10 +178,15 @@ func TestRateCounter_Counter(t *testing.T) {
 			wg.Wait()
 			cancelFunc()
 
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Counter() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
 			got := c.Counter()
 
-			// we cannot control the exact time when a routine call increase
-			// so a little error is reasonable
+			// we cannot control the exact moment when a routine call increase,
+			// so a small error is reasonable
 			relativeError := math.Abs(float64(got-tt.want) / float64(tt.want))
 			if relativeError > 0.1 {
 				t.Errorf("TestRateCounter_Counter() relative error greater than 1%%, got = %v, want = %v", got, tt.want)

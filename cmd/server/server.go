@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/stiflerGit/simpleinsurance-assessment/pkg/server"
 )
@@ -17,9 +18,11 @@ var ( // flags
 func main() {
 	flag.Parse()
 
-	var serverOpts []server.Option
+	serverOpts := []server.Option{
+		server.WithLogger(log.New(os.Stderr, "server", log.LstdFlags|log.Lshortfile)),
+	}
 	if *persistenceFile != "" {
-		serverOpts = append(serverOpts, server.WithFilePersistence(*persistenceFile))
+		serverOpts = append(serverOpts, server.WithFilePersistencePath(*persistenceFile))
 	}
 
 	myServer, err := server.New(serverOpts...)
