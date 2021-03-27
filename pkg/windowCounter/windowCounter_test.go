@@ -3,13 +3,14 @@ package windowCounter
 import (
 	"context"
 	"math"
+	"os"
 	"reflect"
 	"sync"
 	"testing"
 	"time"
 )
 
-func TestNewWindowCounter(t *testing.T) {
+func TestNew(t *testing.T) {
 	type args struct {
 		duration   time.Duration
 		resolution uint64
@@ -72,7 +73,54 @@ func TestNewWindowCounter(t *testing.T) {
 	}
 }
 
-func TestRateCounter_Counter(t *testing.T) {
+func TestNewFromFile(t *testing.T) {
+
+	invalidJsonFile, err := os.Create("invalid.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer invalidJsonFile.Close()
+	defer os.Remove("invalid.json")
+
+	if _, err = invalidJsonFile.Write([]byte("invalidJSON")); err != nil {
+		t.Fatal(err)
+	}
+
+	type args struct {
+		filePath string
+		options  []Option
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantWc  *WindowCounter
+		wantErr bool
+	}{
+		{
+			name: "invalidJSON",
+			args: args{
+				filePath: invalidJsonFile.Name(),
+				options:  nil,
+			},
+			wantWc:  nil,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotWc, err := NewFromFile(tt.args.filePath, tt.args.options...)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("NewFromFile() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(gotWc, tt.wantWc) {
+				t.Errorf("NewFromFile() gotWc = %v, want %v", gotWc, tt.wantWc)
+			}
+		})
+	}
+}
+
+func TestWindowCounter(t *testing.T) {
 	type fields struct {
 		duration    time.Duration
 		counter     int64
@@ -192,53 +240,6 @@ func TestRateCounter_Counter(t *testing.T) {
 				t.Errorf("TestRateCounter_Counter() relative error greater than 1%%, got = %v, want = %v", got, tt.want)
 			}
 
-		})
-	}
-}
-
-func TestRateCounter_Increase(t *testing.T) {
-	type fields struct {
-		duration    time.Duration
-		counter     int64
-		prevCounter int64
-		resolution  uint64
-		counters    []int64
-		head        int
-		tail        int
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		want   int64
-	}{
-		{
-			name: "nominal",
-			fields: fields{
-				duration:    time.Second,
-				counter:     0,
-				prevCounter: 0,
-				resolution:  10,
-				counters:    nil,
-				head:        0,
-				tail:        0,
-			},
-			want: 1,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c := &WindowCounter{
-				windowDuration: tt.fields.duration,
-				counter:        tt.fields.counter,
-				prevCounter:    tt.fields.prevCounter,
-				resolution:     tt.fields.resolution,
-				counters:       tt.fields.counters,
-				head:           tt.fields.head,
-				tail:           tt.fields.tail,
-			}
-			if got := c.Increase(); got != tt.want {
-				t.Errorf("Increase() = %v, want %v", got, tt.want)
-			}
 		})
 	}
 }
