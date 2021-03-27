@@ -36,39 +36,27 @@ func New(opts ...Option) (*Server, error) {
 		opt(s)
 	}
 
+	return s, nil
+}
+
+// Start start the server
+func (s *Server) Start(ctx context.Context) error {
 	s.logger.Printf("building window counter\n")
 	wc, err := s.buildWindowCounter()
 	if err != nil {
-		return nil, fmt.Errorf("building WindowCounter: %v", err)
+		return fmt.Errorf("building WindowCounter: %v", err)
 	}
 	s.windowCounter = wc
 	s.logger.Printf("window counter built\n")
 
 	go func() {
-		for {
-			s.logger.Printf("starting window counter\n")
-			if err := wc.Run(context.TODO()); err != nil {
-				s.logger.Printf("[WARN] window counter error: %v\n", err)
-				s.logger.Printf("trying to restart window counter\n")
-
-				s.logger.Printf("removing old persistence file\n")
-				if err = os.Remove(s.filePath); err != nil {
-					s.logger.Printf("removing persistence file in %s: %v\n", s.filePath, err)
-				}
-				s.logger.Printf("old persistence file removed\n")
-
-				s.logger.Printf("building window counter\n")
-				wc, err = s.buildWindowCounter()
-				if err != nil {
-					panic(fmt.Errorf("building WindowCounter: %v", err))
-				}
-				s.logger.Printf("window counter built\n")
-				s.windowCounter = wc
-			}
+		s.logger.Printf("starting window counter\n")
+		if err := wc.Run(ctx); err != nil {
+			panic(err)
 		}
 	}()
 
-	return s, nil
+	return nil
 }
 
 func (s Server) buildWindowCounter() (*windowCounter.WindowCounter, error) {
@@ -90,7 +78,6 @@ func (s Server) buildWindowCounter() (*windowCounter.WindowCounter, error) {
 // ServeHTTP responds at each request with a counter of the total number
 // of requests that it has received during the previous 60 seconds
 func (s *Server) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
-
 	response, err := s.Request()
 	if err != nil {
 		resp.WriteHeader(http.StatusInternalServerError)
@@ -106,8 +93,6 @@ func (s *Server) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	if _, err = resp.Write(bytes); err != nil {
 		resp.WriteHeader(http.StatusInternalServerError)
 	}
-
-	resp.WriteHeader(http.StatusOK)
 }
 
 // Request execute the logic of the server i.e. return the number of requests in the last 60s

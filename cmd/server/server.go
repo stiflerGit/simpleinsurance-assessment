@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 
 	"github.com/stiflerGit/simpleinsurance-assessment/pkg/server"
 )
@@ -28,6 +30,13 @@ func main() {
 	myServer, err := server.New(serverOpts...)
 	if err != nil {
 		log.Fatalf("creating new server: %v", err)
+	}
+
+	ctx, cancelFunch := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancelFunch()
+
+	if err := myServer.Start(ctx); err != nil {
+		log.Fatalf("[ERROR] starting the server: %v", err)
 	}
 
 	addr := fmt.Sprintf("localhost:%d", *port)
