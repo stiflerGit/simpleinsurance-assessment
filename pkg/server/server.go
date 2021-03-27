@@ -24,7 +24,6 @@ type Server struct {
 	windowCounter *windowCounter.WindowCounter
 	logger        *log.Logger
 	filePath      string
-	err           error
 }
 
 func New(opts ...Option) (*Server, error) {

@@ -54,6 +54,15 @@ func New(windowDuration time.Duration, resolution uint64, options ...Option) (*W
 	return c, nil
 }
 
+// Must is equal to Nen but panics if there is some error
+func Must(windowDuration time.Duration, resolution uint64, options ...Option) *WindowCounter {
+	wc, err := New(windowDuration, resolution, options...)
+	if err != nil {
+		panic(err)
+	}
+	return wc
+}
+
 func computePeriod(duration time.Duration, resolution uint64) time.Duration {
 	return time.Duration(float64(duration) / float64(resolution))
 }

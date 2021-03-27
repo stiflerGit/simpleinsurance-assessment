@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"os/signal"
 
 	"github.com/stiflerGit/simpleinsurance-assessment/pkg/server"
 )
@@ -32,10 +31,7 @@ func main() {
 		log.Fatalf("creating new server: %v", err)
 	}
 
-	ctx, cancelFunch := signal.NotifyContext(context.Background(), os.Interrupt)
-	defer cancelFunch()
-
-	if err := myServer.Start(ctx); err != nil {
+	if err := myServer.Start(context.Background()); err != nil {
 		log.Fatalf("[ERROR] starting the server: %v", err)
 	}
 
