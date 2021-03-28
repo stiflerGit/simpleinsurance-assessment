@@ -21,8 +21,8 @@ We can leave the persistence problem to later. As soon as we know how to impleme
 I usually start with direct and simple approach to solve the problem, and look at the weakness of the solution.
 
 As we can see for the very first commit the RateCounter is a datastructure that implements the requested behaviour.
-Such a structure stores an time.Time for each request to `Increase` in a slice. When the Counter is requested `Rate` cycles
-through the slice and returns the time.Time in the corrisponding window.  Since `time.Time` are appended each request 
+Such a structure stores an `time.Time` for each request to `Increase` in a slice. When the Counter is requested `Rate` cycles
+through the slice and returns the `time.Time` in the corrisponding window.  Since `time.Time` are appended each request 
 the slice is sorted by ascending order and this simplifies the algorithm.
 
 ```go 
@@ -46,13 +46,13 @@ func (c *RateCounter) RequestCounter() int {
 
 This algorithm have a lot of weaknesses:
 - Time complexity is O(n) in the worst case
-- Allocates time.Time per request. Even if the slice is truncated we allocate continuously in the heap, this allocation is not under our control, indeed depends on the clients requests.
+- Allocates `time.Time` per request. Even if the slice is truncated we allocate continuously in the heap, this allocation is not under our control, indeed depends on the clients requests.
 - The slice management start from an external call
 
 ## Later approaches
 We can move the management of the slice internally to the struct. This implies using a go routine that runs each time period. Such a routine can run the algorithm above and store a counter that is going to be returned when user calls `RequestCounter`.
 
-We still have a slice of time.Time that grows indefinitely. To solve this problem imagine we divide the windows in various ticks:
+We still have a slice of `time.Time` that grows indefinitely. To solve this problem imagine we divide the windows in various ticks:
 ```
   ________________________________
  |                                |
