@@ -169,7 +169,7 @@ func (s *Server) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 func (s Server) isClientAllowed(r *http.Request) (bool, error) {
 	ip, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		return false, err // TODO: remove panic
+		return false, err
 	}
 
 	lim := s.limiter.Get(ip)

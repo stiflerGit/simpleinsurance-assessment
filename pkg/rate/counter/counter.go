@@ -142,7 +142,7 @@ func (c *Counter) Run(ctx context.Context) error {
 					return
 
 				case <-ticker.C:
-					if serr := c.saveState(); err != nil {
+					if serr := c.saveState(); serr != nil {
 						cancelFunc()
 						err = serr
 						return
@@ -201,12 +201,16 @@ func (c *Counter) tick() {
 	c.at = time.Now()
 }
 
-func (c *Counter) saveState() error {
-	f, err := os.Create(c.persistenceFilePath)
-	if err != nil {
-		return fmt.Errorf("creating file %s: %v", c.persistenceFilePath, err)
+func (c *Counter) saveState() (err error) {
+	f, cerr := os.Create(c.persistenceFilePath)
+	if cerr != nil {
+		return fmt.Errorf("creating file %s: %v", c.persistenceFilePath, cerr)
 	}
-	defer f.Close()
+	defer func() {
+		if cerr = f.Close(); err == nil {
+			err = cerr
+		}
+	}()
 
 	bytes, err := json.Marshal(c)
 	if err != nil {

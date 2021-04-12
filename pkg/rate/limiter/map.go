@@ -35,14 +35,13 @@ func NewMap(duration time.Duration, limit int64, options ...MapOption) *Map {
 	return m
 }
 
-func NewFromFile(filePath string, options ...MapOption) (*Map, error) {
-	f, err := os.Open(filePath)
-	if err != nil {
-		return nil, fmt.Errorf("opening file %s: %v", filePath, err)
+func NewFromFile(filePath string, options ...MapOption) (m *Map, err error) {
+	f, cerr := os.Open(filePath)
+	if cerr != nil {
+		return nil, fmt.Errorf("opening file %s: %v", filePath, cerr)
 	}
 	defer func() {
-		cerr := f.Close()
-		if err == nil {
+		if cerr = f.Close(); err == nil {
 			err = cerr
 		}
 	}()
@@ -75,6 +74,7 @@ func NewFromJSON(bytes []byte, options ...MapOption) (*Map, error) {
 		if err != nil {
 			return nil, err
 		}
+		initLimiter.Start(context.Background())
 
 		keyToLimiter[key] = initLimiter
 	}
@@ -115,12 +115,16 @@ func (m *Map) Run(ctx context.Context) error {
 	return nil
 }
 
-func (m *Map) saveState() error {
-	f, err := os.Create(m.persistenceFilePath)
-	if err != nil {
-		return fmt.Errorf("creating file %s: %v", m.persistenceFilePath, err)
+func (m *Map) saveState() (err error) {
+	f, cerr := os.Create(m.persistenceFilePath)
+	if cerr != nil {
+		return fmt.Errorf("creating file %s: %v", m.persistenceFilePath, cerr)
 	}
-	defer f.Close()
+	defer func() {
+		if cerr = f.Close(); err == nil {
+			err = cerr
+		}
+	}()
 
 	bytes, err := json.Marshal(m)
 	if err != nil {
@@ -142,6 +146,8 @@ func (m *Map) Get(key string) *Limiter {
 	if !ok {
 		l = Must(m.duration, m.limit)
 		m.keyToLimiter[key] = l
+		// TODO: manage context?
+		l.Start(context.Background())
 	}
 
 	return l

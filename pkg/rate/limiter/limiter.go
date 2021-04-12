@@ -33,9 +33,6 @@ func NewLimiter(duration time.Duration, limit int64) (*Limiter, error) {
 		limit,
 	}
 
-	// TODO: manage errors
-	l.start()
-
 	return l, nil
 }
 
@@ -44,17 +41,17 @@ func NewLimiterFromJSON(bytes []byte) (*Limiter, error) {
 
 	err := json.Unmarshal(bytes, &lJSON)
 	if err != nil {
-		return nil, err // TODO: enrich the error
+		return nil, fmt.Errorf("unmarshalling JSON: %v", err)
 	}
 
 	counterJSON, err := json.Marshal(lJSON.Counter)
 	if err != nil {
-		return nil, err // TODO: enrich the error
+		return nil, fmt.Errorf("marshalling counter: %v", err)
 	}
 
 	counter, err := counter.NewFromJSON(counterJSON)
 	if err != nil {
-		return nil, err // TODO: enrich the error
+		return nil, fmt.Errorf("creating new counterFromJSON")
 	}
 
 	return &Limiter{
@@ -73,8 +70,13 @@ func Must(duration time.Duration, limit int64) *Limiter {
 	return l
 }
 
-func (l *Limiter) start() {
-	go l.c.Run(context.Background())
+// Start starts the limiter routine, it panics if it encounter some errors during the run
+func (l *Limiter) Start(ctx context.Context) {
+	go func() {
+		if err := l.c.Run(ctx); err != nil {
+			panic(err)
+		}
+	}()
 }
 
 // IsAllowed returns true if the number of request in the windows are under the limit

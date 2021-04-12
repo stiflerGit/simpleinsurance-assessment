@@ -11,7 +11,7 @@ import (
 
 var ( //flags
 	addr      = flag.String("address", "http://localhost:8080", "address of the server")
-	frequency = flag.Int("frequency", 1, "number of request each second")
+	frequency = flag.Float64("frequency", 1, "number of request each second")
 )
 
 func main() {
