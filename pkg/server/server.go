@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/stiflerGit/simpleinsurance-assessment/pkg/rate/counter"
@@ -16,24 +17,32 @@ import (
 )
 
 const (
-	defaultCounterWindowsDuration = 60 * time.Second
-	defaultLimiterWindowsDuration = 20 * time.Second
-	defaultCounterResolution      = 1000
-	defaultPersistenceFilePath    = "windowCounterState.json"
-	defaultSavePeriod             = 5 * time.Second
+	defaultCounterWindowsDuration     = 60 * time.Second
+	defaultLimiterWindowsDuration     = 20 * time.Second
+	defaultLimit                      = 15
+	defaultCounterResolution          = 1000
+	defaultPersistenceDir             = "persistence"
+	defaultCounterPersistenceFileName = "windowCounterState.json"
+	defaultLimiterPersistenceFileName = "limiter.json"
+	defaultSavePeriod                 = 5 * time.Second
 )
 
 type Server struct {
-	limiter  *limiter.Map
-	counter  *counter.Counter
-	logger   *log.Logger
-	filePath string
-	limit    int64
+	logger *log.Logger
+
+	persistencePath string
+	// counter
+	counter *counter.Counter
+
+	// limiter
+	limiter *limiter.Map
+	limit   int64
 }
 
 func New(opts ...Option) (*Server, error) {
 	s := &Server{
-		filePath: defaultPersistenceFilePath,
+		persistencePath: defaultPersistenceDir,
+		limit:           defaultLimit,
 	}
 
 	for _, opt := range opts {
@@ -46,10 +55,16 @@ func New(opts ...Option) (*Server, error) {
 // Start start the server
 func (s *Server) Start(ctx context.Context) error {
 
+	if s.persistencePath != "" {
+		if err := os.MkdirAll(s.persistencePath, os.ModePerm); err != nil {
+			return err
+		}
+	}
+
 	s.logger.Printf("building window counter\n")
 	wc, err := s.buildWindowCounter()
 	if err != nil {
-		return fmt.Errorf("building Value: %v", err)
+		return fmt.Errorf("building counter: %v", err)
 	}
 	s.counter = wc
 	s.logger.Printf("window counter built\n")
@@ -62,8 +77,20 @@ func (s *Server) Start(ctx context.Context) error {
 	}()
 
 	if s.limit > 0 {
-		l := limiter.NewMap(defaultLimiterWindowsDuration, s.limit)
-		s.limiter = l
+		s.logger.Printf("building limiter\n")
+		limiter, err := s.buildLimiter()
+		if err != nil {
+			return fmt.Errorf("building LimiterMap: %v", err)
+		}
+		s.limiter = limiter
+		s.logger.Printf("limiter built\n")
+
+		go func() {
+			s.logger.Printf("starting limiter\n")
+			if err := limiter.Run(ctx); err != nil {
+				panic(err)
+			}
+		}()
 	}
 
 	return nil
@@ -71,18 +98,38 @@ func (s *Server) Start(ctx context.Context) error {
 
 func (s Server) buildWindowCounter() (*counter.Counter, error) {
 
-	rcOptions := []counter.Option{
-		counter.WithPersistence(s.filePath, defaultSavePeriod),
+	counterFilePath := filepath.Join(s.persistencePath, defaultCounterPersistenceFileName)
+
+	options := []counter.Option{
+		counter.WithPersistence(counterFilePath, defaultSavePeriod),
 	}
 
-	if _, err := os.Stat(s.filePath); err != nil {
+	if _, err := os.Stat(counterFilePath); err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
-			return nil, fmt.Errorf("stating file %s: %v", s.filePath, err)
+			return nil, fmt.Errorf("stating file %s: %v", counterFilePath, err)
 		}
-		return counter.New(defaultCounterWindowsDuration, defaultCounterResolution, rcOptions...)
+		return counter.New(defaultCounterWindowsDuration, defaultCounterResolution, options...)
 	}
 
-	return counter.NewFromFile(s.filePath, rcOptions...)
+	return counter.NewFromFile(counterFilePath, options...)
+}
+
+func (s Server) buildLimiter() (*limiter.Map, error) {
+
+	limiterFilePath := filepath.Join(s.persistencePath, defaultLimiterPersistenceFileName)
+
+	options := []limiter.MapOption{
+		limiter.WithPersistence(limiterFilePath, defaultSavePeriod),
+	}
+
+	if _, err := os.Stat(limiterFilePath); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("stating file %s: %v", limiterFilePath, err)
+		}
+		return limiter.NewMap(defaultLimiterWindowsDuration, s.limit, options...), nil
+	}
+
+	return limiter.NewFromFile(limiterFilePath, options...)
 }
 
 // ServeHTTP responds at each request with a counter of the total number

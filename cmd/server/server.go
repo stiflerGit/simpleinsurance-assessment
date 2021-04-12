@@ -25,7 +25,7 @@ func main() {
 	}
 
 	if *persistenceFile != "" {
-		serverOpts = append(serverOpts, server.WithFilePersistencePath(*persistenceFile))
+		serverOpts = append(serverOpts, server.WithPersistence(*persistenceFile))
 	}
 
 	if *limit > 0 {

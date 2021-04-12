@@ -25,9 +25,9 @@ type Counter struct {
 	counters []int64 // counters per tick, managed as a circular buffer
 	head     int
 	tail     int
+	at       time.Time
 
 	// persistence
-	savedAt              time.Time
 	persistenceFilePath  string
 	savePeriod           time.Duration
 	isPersistenceEnabled bool
@@ -72,7 +72,6 @@ func computePeriod(duration time.Duration, resolution uint64) time.Duration {
 // the state file must be created by previously run of the Counter using
 // the WithPersistence option
 func NewFromFile(filePath string, options ...Option) (wc *Counter, err error) {
-	c := &Counter{}
 
 	f, err := os.Open(filePath)
 	if err != nil {
@@ -90,11 +89,18 @@ func NewFromFile(filePath string, options ...Option) (wc *Counter, err error) {
 		return nil, fmt.Errorf("reading file %s: %v", filePath, err)
 	}
 
-	if err = json.Unmarshal(bytes, c); err != nil {
+	return NewFromJSON(bytes, options...)
+}
+
+// NewFromJSON create a Counter starting from a JSON input
+func NewFromJSON(bytes []byte, options ...Option) (*Counter, error) {
+	c := &Counter{}
+
+	if err := json.Unmarshal(bytes, c); err != nil {
 		return nil, fmt.Errorf("unmashalling JSON: %v", err)
 	}
 
-	downDuration := time.Now().Sub(c.savedAt)
+	downDuration := time.Now().Sub(c.at)
 	tickPeriod := computePeriod(c.windowDuration, c.resolution)
 	missingTicks := int(float64(downDuration) / float64(tickPeriod))
 
@@ -136,7 +142,6 @@ func (c *Counter) Run(ctx context.Context) error {
 					return
 
 				case <-ticker.C:
-					c.savedAt = time.Now()
 					if serr := c.saveState(); err != nil {
 						cancelFunc()
 						err = serr
@@ -192,6 +197,8 @@ func (c *Counter) tick() {
 	}
 
 	c.prevCounter = c.counter
+
+	c.at = time.Now()
 }
 
 func (c *Counter) saveState() error {
@@ -213,7 +220,7 @@ func (c *Counter) saveState() error {
 	return nil
 }
 
-// Counter returns the number of increase received in the passed window
+// Value returns the number of increase received in the passed window
 func (c *Counter) Value() int64 {
 	c.m.Lock()
 	defer c.m.Unlock()
@@ -234,42 +241,4 @@ func (c *Counter) Increase() int64 {
 
 	c.counter++
 	return c.counter
-}
-
-func (c *Counter) MarshalJSON() ([]byte, error) {
-	c.m.Lock()
-	defer c.m.Unlock()
-
-	return json.Marshal(WindowCounterJSON{
-		Duration:    c.windowDuration,
-		Counter:     c.counter,
-		PrevCounter: c.prevCounter,
-		Resolution:  c.resolution,
-		Counters:    c.counters,
-		Head:        c.head,
-		Tail:        c.tail,
-		SavedAt:     c.savedAt,
-	})
-}
-
-func (c *Counter) UnmarshalJSON(bytes []byte) error {
-	c.m.Lock()
-	defer c.m.Unlock()
-
-	cJSON := WindowCounterJSON{}
-
-	if err := json.Unmarshal(bytes, &cJSON); err != nil {
-		return fmt.Errorf("unmarshalling json: %v", err)
-	}
-
-	c.windowDuration = cJSON.Duration
-	c.counter = cJSON.Counter
-	c.prevCounter = cJSON.PrevCounter
-	c.resolution = cJSON.Resolution
-	c.counters = cJSON.Counters
-	c.head = cJSON.Head
-	c.tail = cJSON.Tail
-	c.savedAt = cJSON.SavedAt
-
-	return nil
 }

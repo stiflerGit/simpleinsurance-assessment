@@ -16,9 +16,9 @@ import (
 
 func TestServer(t *testing.T) {
 	s := &Server{
-		counter:  windowCounter2.Must(time.Second, 10),
-		logger:   log.Default(),
-		filePath: defaultPersistenceFilePath,
+		counter:         windowCounter2.Must(time.Second, 10),
+		logger:          log.Default(),
+		persistencePath: defaultCounterPersistenceFileName,
 	}
 
 	if err := s.Start(context.TODO()); err != nil {

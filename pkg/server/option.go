@@ -6,10 +6,10 @@ import (
 
 type Option func(s *Server)
 
-// WithFilePersistencePath set the path of where the server save its persistence file
-func WithFilePersistencePath(path string) Option {
+// WithPersistence set the path of where the server save its persistence files
+func WithPersistence(path string) Option {
 	return func(s *Server) {
-		s.filePath = path
+		s.persistencePath = path
 	}
 }
 
