@@ -40,6 +40,7 @@ func New(windowDuration time.Duration, resolution uint64, options ...Option) (*C
 	c := &Counter{
 		windowDuration: windowDuration,
 		resolution:     resolution,
+		counters:       make([]int64, resolution),
 	}
 
 	tickPeriod := computePeriod(c.windowDuration, c.resolution)
@@ -156,7 +157,6 @@ func (c *Counter) Run(ctx context.Context) error {
 	go func() {
 		defer wg.Done()
 
-		c.counters = make([]int64, c.resolution)
 		period := computePeriod(c.windowDuration, c.resolution)
 		ticker := time.NewTicker(period)
 

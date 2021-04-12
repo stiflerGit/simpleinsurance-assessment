@@ -24,7 +24,7 @@ const (
 	defaultPersistenceDir             = "persistence"
 	defaultCounterPersistenceFileName = "windowCounterState.json"
 	defaultLimiterPersistenceFileName = "limiter.json"
-	defaultSavePeriod                 = 5 * time.Second
+	defaultSavePeriod                 = time.Second
 )
 
 type Server struct {
