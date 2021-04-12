@@ -3,6 +3,7 @@ package limiter
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/stiflerGit/simpleinsurance-assessment/pkg/rate/counter"
@@ -13,6 +14,7 @@ const (
 )
 
 type Limiter struct {
+	sync.Mutex
 	c     *counter.Counter
 	limit int64
 }
@@ -25,6 +27,7 @@ func New(duration time.Duration, limit int64) (*Limiter, error) {
 	}
 
 	l := &Limiter{
+		sync.Mutex{},
 		wc,
 		limit,
 	}
@@ -50,6 +53,9 @@ func (l *Limiter) start() {
 
 // IsAllowed returns true if the number of request in the windows are under the limit
 func (l *Limiter) IsAllowed() bool {
+	l.Lock()
+	defer l.Unlock()
+
 	c := l.c.Value()
 
 	if c >= l.limit {
