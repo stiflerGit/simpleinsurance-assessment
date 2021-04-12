@@ -1,4 +1,5 @@
 BUILD_DIR := $(shell pwd)/_out
+PERSISTENCE_DIR := $(shell pwd)/persistence
 
 .PHONY: server client
 all: server client
@@ -13,4 +14,4 @@ test:
 	go test -race ./...
 
 clean:
-	rm -rf $(BUILD_DIR) windowCounterState.json # TODO: give a persistence folder
+	rm -rf $(BUILD_DIR) $(PERSISTENCE_DIR)
