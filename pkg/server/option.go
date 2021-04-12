@@ -1,6 +1,8 @@
 package server
 
-import "log"
+import (
+	"log"
+)
 
 type Option func(s *Server)
 
@@ -8,6 +10,13 @@ type Option func(s *Server)
 func WithFilePersistencePath(path string) Option {
 	return func(s *Server) {
 		s.filePath = path
+	}
+}
+
+// WithPerIPRequestLimiter if limit is lte 0 than no limit is applied
+func WithPerIPRequestLimiter(limit int64) Option {
+	return func(s *Server) {
+		s.limit = limit
 	}
 }
 

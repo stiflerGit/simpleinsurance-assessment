@@ -11,14 +11,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stiflerGit/simpleinsurance-assessment/pkg/windowCounter"
+	windowCounter2 "github.com/stiflerGit/simpleinsurance-assessment/pkg/rate/counter"
 )
 
 func TestServer(t *testing.T) {
 	s := &Server{
-		windowCounter: windowCounter.Must(time.Second, 10),
-		logger:        log.Default(),
-		filePath:      defaultPersistenceFilePath,
+		counter:  windowCounter2.Must(time.Second, 10),
+		logger:   log.Default(),
+		filePath: defaultPersistenceFilePath,
 	}
 
 	if err := s.Start(context.TODO()); err != nil {

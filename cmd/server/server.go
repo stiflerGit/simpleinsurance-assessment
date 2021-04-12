@@ -14,6 +14,7 @@ import (
 var ( // flags
 	port            = flag.Int("port", 8080, "port on which start the server")
 	persistenceFile = flag.String("persistence", "", "path of the file to read/write state")
+	limit           = flag.Int64("limit", 0, "limit max number of request to N each 20 seconds")
 )
 
 func main() {
@@ -22,8 +23,13 @@ func main() {
 	serverOpts := []server.Option{
 		server.WithLogger(log.New(os.Stderr, "server", log.LstdFlags|log.Lshortfile)),
 	}
+
 	if *persistenceFile != "" {
 		serverOpts = append(serverOpts, server.WithFilePersistencePath(*persistenceFile))
+	}
+
+	if *limit > 0 {
+		serverOpts = append(serverOpts, server.WithPerIPRequestLimiter(*limit))
 	}
 
 	myServer, err := server.New(serverOpts...)
