@@ -1,6 +1,7 @@
 package limiter
 
 import (
+	"context"
 	"testing"
 	"time"
 )
@@ -49,6 +50,7 @@ func TestLimiter_Allow(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			l := Must(tt.fields.duration, tt.fields.limit)
+			l.Start(context.TODO())
 			for i := 0; i < tt.args.nReq; i++ {
 				want := tt.want[i]
 				if got := l.IsAllowed(); got != want {

@@ -54,13 +54,13 @@ func New(windowDuration time.Duration, resolution uint64, options ...Option) (*C
 	return c, nil
 }
 
-// Must is equal to Nen but panics if there is some error
+// Must is equal to New but panics if there is some error
 func Must(windowDuration time.Duration, resolution uint64, options ...Option) *Counter {
-	wc, err := New(windowDuration, resolution, options...)
+	c, err := New(windowDuration, resolution, options...)
 	if err != nil {
 		panic(err)
 	}
-	return wc
+	return c
 }
 
 func computePeriod(duration time.Duration, resolution uint64) time.Duration {
@@ -202,6 +202,8 @@ func (c *Counter) tick() {
 }
 
 func (c *Counter) saveState() (err error) {
+	// mutex lock is in MarshalJSON
+
 	f, cerr := os.Create(c.persistenceFilePath)
 	if cerr != nil {
 		return fmt.Errorf("creating file %s: %v", c.persistenceFilePath, cerr)

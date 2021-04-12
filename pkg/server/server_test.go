@@ -11,12 +11,12 @@ import (
 	"testing"
 	"time"
 
-	windowCounter2 "github.com/stiflerGit/simpleinsurance-assessment/pkg/rate/counter"
+	"github.com/stiflerGit/simpleinsurance-assessment/pkg/rate/counter"
 )
 
 func TestServer(t *testing.T) {
 	s := &Server{
-		counter:         windowCounter2.Must(time.Second, 10),
+		counter:         counter.Must(time.Second, 10),
 		logger:          log.Default(),
 		persistencePath: defaultCounterPersistenceFileName,
 	}

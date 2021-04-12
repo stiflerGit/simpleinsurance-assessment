@@ -11,7 +11,7 @@ type MapJSON struct {
 	Limit        int64               `json:"limit"`
 }
 
-func (m *Map) MarshalJSON() ([]byte, error) {
+func (m Map) MarshalJSON() ([]byte, error) {
 	m.Lock()
 	defer m.Unlock()
 
